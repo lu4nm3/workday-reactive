@@ -47,8 +47,8 @@ public class Application {
 
     private GitHubBuilder getGitHubBuilder() {
         Properties properties = new Properties();
-        properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
-        properties.put("login", configuration.getString(GitHubConfig.LOGIN));
+//        properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
+//        properties.put("login", configuration.getString(GitHubConfig.LOGIN));
 //        properties.put("password", configuration.getString(GitHubConfig.PASSWORD));
 
         return GitHubBuilder.fromProperties(properties);
@@ -72,7 +72,6 @@ public class Application {
         try {
             GitHub gitHub = gitHubBuilder.build();
 
-//            System.out.println(gitHub.searchRepositories().q("reactive").list().getTotalCount());
             PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q("reactive").list();//.q("reactive").list();
 
             Iterator<GHRepository> iterator = searchIterable.iterator();
