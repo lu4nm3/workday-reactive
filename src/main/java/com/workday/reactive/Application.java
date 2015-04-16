@@ -1,10 +1,14 @@
 package com.workday.reactive;
 
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.workday.reactive.actor.ApplicationActor;
+import com.workday.reactive.actor.ManagerActor;
 import com.workday.reactive.configuration.GitHubConfig;
 import com.workday.reactive.configuration.TwitterConfig;
+import lombok.extern.slf4j.Slf4j;
 import org.kohsuke.github.*;
 import twitter4j.*;
 import twitter4j.auth.AccessToken;
@@ -17,31 +21,33 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.workday.reactive.Constants.*;
+
 /**
  * @author lmedina
  */
+@Slf4j
 public class Application {
+    private Config configuration;
     private ActorSystem system;
 
-    private Config configuration;
-
-    private GitHub gitHub;
     private GitHubBuilder gitHubBuilder;
+    private TwitterFactory twitterFactory;
     private Twitter twitter;
 
     public static void main(String[] args) {
         Application app = new Application();
         app.init();
-
-        app.gitHubTest();
-//        app.twitterTest();
+        app.twitterTest();
+//        app.start();
     }
 
     private void init() {
         configuration = ConfigFactory.parseFile(new File("configuration/application.conf"));//.withFallback(ConfigFactory.load());
+        system = ActorSystem.create("ActorSystem", configuration);
 
         gitHubBuilder = getGitHubBuilder();
-
+        twitterFactory = new TwitterFactory();
         twitter = getTwitter();
     }
 
@@ -58,14 +64,24 @@ public class Application {
         AccessToken accessToken = new AccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN),
                                                   configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET));
 
-        TwitterFactory factory = new TwitterFactory();
+//        TwitterFactory factory = new TwitterFactory();
+//
+//        Twitter twitter = factory.getInstance();
+//        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
+//                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
+//        twitter.setOAuthAccessToken(accessToken);
 
-        Twitter twitter = factory.getInstance();
-        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
-                configuration.getString(TwitterConfig.Auth.API_SECRET));
-        twitter.setOAuthAccessToken(accessToken);
+        Twitter twitter = twitterFactory.getInstance(accessToken);
+
 
         return twitter;
+    }
+
+    private void start() {
+        log.info("Starting ManagerActor");
+        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, twitterFactory), APPLICATION_ACTOR);
+
+
     }
 
     private void gitHubTest() {
