@@ -5,9 +5,12 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.ReceiveTimeout;
 import akka.japi.pf.ReceiveBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.workday.reactive.actor.messages.*;
 import com.workday.reactive.configuration.TwitterConfig;
+import com.workday.reactive.data.Project;
+import com.workday.reactive.data.Summary;
 import org.kohsuke.github.GHRepository;
 import scala.PartialFunction;
 import scala.concurrent.duration.Duration;
@@ -24,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class WorkerActor extends AbstractLoggingActor {
     private ActorRef twitterThrottler;
     private ActorRef manager;
-    private ObjectMapper objectMapper;
+    private ObjectMapper mapper;
 
     private Twitter twitter;
 
@@ -37,10 +40,10 @@ public class WorkerActor extends AbstractLoggingActor {
         return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper) {
+    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper) {
         this.twitterThrottler = twitterThrottler;
         this.manager = manager;
-        this.objectMapper = objectMapper;
+        this.mapper = mapper;
 
         initializeTwitter(twitterFactory);
         manager.tell(new NewWorker(), self());
@@ -88,9 +91,10 @@ public class WorkerActor extends AbstractLoggingActor {
 
     private void processRepository() {
         try {
-            Query query = new Query(currentRepository.getFullName());
+            Query query = new Query(currentRepository.getName());
             QueryResult result = twitter.search(query);
-            result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
+//            result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
+            print(result.getTweets());
             manager.tell(new WorkDone(), self());
             context().unbecome();
         } catch (TwitterException e) {
@@ -105,7 +109,15 @@ public class WorkerActor extends AbstractLoggingActor {
     }
 
     private void print(List<Status> tweets) {
-
+        String project = getAsJson(new Project(new Summary(currentRepository), tweets));
+        System.out.println(project);
     }
 
+    private String getAsJson(Project project) {
+        try {
+            return mapper.writeValueAsString(project);
+        } catch (JsonProcessingException e) {
+            return "";
+        }
+    }
 }

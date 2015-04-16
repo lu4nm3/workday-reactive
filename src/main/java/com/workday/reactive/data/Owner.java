@@ -1,13 +1,10 @@
 package com.workday.reactive.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.NonNull;
-import twitter4j.Status;
-
-import java.util.List;
 
 /**
  * @author lmedina
@@ -16,10 +13,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Project {
-    @NonNull
-    private Summary summary;
-
-    @NonNull
-    private List<Status> tweets;
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class Owner {
+    private String login;
+    private Integer id;
+    private String url;
 }
