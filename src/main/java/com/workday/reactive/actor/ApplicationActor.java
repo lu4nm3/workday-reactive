@@ -45,7 +45,4 @@ public class ApplicationActor extends AbstractLoggingActor{
     private void start() {
         eventsListener.tell(new Start(), self());
     }
-
-
-
 }

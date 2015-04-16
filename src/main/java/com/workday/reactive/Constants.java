@@ -9,4 +9,5 @@ public class Constants {
     public static final String GITHUB_EVENTS_LISTENER_ACTOR = "GitHubEventsListenerActor";
     public static final String TWITTER_WORKERS = "TwitterWorkers";
 
+    public static final String REACTIVE = "reactive";
 }

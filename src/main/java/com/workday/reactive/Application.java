@@ -8,13 +8,10 @@ import com.typesafe.config.ConfigFactory;
 import com.workday.reactive.actor.ApplicationActor;
 import com.workday.reactive.actor.messages.Start;
 import com.workday.reactive.configuration.GitHubConfig;
-import com.workday.reactive.configuration.TwitterConfig;
 import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import twitter4j.Twitter;
 import twitter4j.TwitterFactory;
-import twitter4j.auth.AccessToken;
 
 import java.io.File;
 import java.util.Properties;
@@ -52,23 +49,20 @@ public class Application {
     private GitHubBuilder getGitHubBuilder() {
         Properties properties = new Properties();
         properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
-//        properties.put("login", configuration.getString(GitHubConfig.LOGIN));
-//        properties.put("password", configuration.getString(GitHubConfig.PASSWORD));
         return GitHubBuilder.fromProperties(properties);
     }
 
-    private Twitter getTwitter() {
-        AccessToken accessToken = new AccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN),
-                                                  configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET));
-
-        Twitter twitter = twitterFactory.getInstance();
-        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
-                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
-        twitter.setOAuthAccessToken(accessToken);
-
-
-        return twitter;
-    }
+//    private Twitter getTwitter() {
+//        AccessToken accessToken = new AccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN),
+//                                                  configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET));
+//
+//        Twitter twitter = twitterFactory.getInstance();
+//        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
+//                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
+//        twitter.setOAuthAccessToken(accessToken);
+//
+//        return twitter;
+//    }
 
     private void start() {
         log.info("Starting ManagerActor");
