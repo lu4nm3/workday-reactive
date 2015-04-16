@@ -119,10 +119,10 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private List<GHRepository> getRepositories(List<GHEventInfo> events) {
         return events.stream().map(this::getRepository)
-                .filter(repo -> repo != null)
-                .filter(repo -> repo.getId() != latestRepo.getId())
-                .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
-                .collect(Collectors.toList());
+                              .filter(repo -> repo != null)
+                              .filter(repo -> repo.getId() != latestRepo.getId())
+                              .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
+                              .collect(Collectors.toList());
     }
 
     private GHRepository getRepository(GHEventInfo event) {
