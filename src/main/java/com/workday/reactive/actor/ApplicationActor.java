@@ -4,6 +4,7 @@ import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.japi.pf.ReceiveBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.actor.messages.Start;
 import org.kohsuke.github.GitHubBuilder;
@@ -11,27 +12,28 @@ import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
 import twitter4j.TwitterFactory;
 
-import static com.workday.reactive.Constants.GITHUB_EVENTS_LISTENER_ACTOR;
-import static com.workday.reactive.Constants.MANAGER_ACTOR;
-import static com.workday.reactive.Constants.TWITTER_WORKERS;
+import static com.workday.reactive.Constants.*;
 
 /**
  * @author lmedina
  */
 public class ApplicationActor extends AbstractLoggingActor{
     private ActorRef manager;
-    private ActorRef eventsListener;
     private ActorRef twitterThrottler;
     private ActorRef workers;
+    private ActorRef eventsListener;
 
-    public static Props props(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory) {
-        return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory);
+    public static Props props(GitHubBuilder gitHubBuilder,
+                              RateLimiter gitHubRateLimiter,
+                              TwitterFactory twitterFactory,
+                              ObjectMapper objectMapper) {
+        return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper);
     }
 
-    ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory) {
+    ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory, ObjectMapper objectMapper) {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
-        twitterThrottler = null;
-        workers = context().actorOf(WorkerActor.props(twitterFactory, twitterThrottler, manager), TWITTER_WORKERS);
+        twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
+        workers = context().actorOf(WorkerActor.props(twitterFactory, twitterThrottler, manager, objectMapper), TWITTER_WORKERS);
         eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 

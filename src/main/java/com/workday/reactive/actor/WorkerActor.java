@@ -5,6 +5,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.ReceiveTimeout;
 import akka.japi.pf.ReceiveBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.workday.reactive.actor.messages.*;
 import com.workday.reactive.configuration.TwitterConfig;
 import org.kohsuke.github.GHRepository;
@@ -14,26 +15,32 @@ import scala.runtime.BoxedUnit;
 import twitter4j.*;
 import twitter4j.auth.AccessToken;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author lmedina
  */
 public class WorkerActor extends AbstractLoggingActor {
-    private Twitter twitter;
-
     private ActorRef twitterThrottler;
     private ActorRef manager;
+    private ObjectMapper objectMapper;
+
+    private Twitter twitter;
 
     private GHRepository currentRepository;
 
-    public static Props props(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager) {
-        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager);
+    public static Props props(TwitterFactory twitterFactory,
+                              ActorRef twitterThrottler,
+                              ActorRef manager,
+                              ObjectMapper objectMapper) {
+        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager) {
+    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper) {
         this.twitterThrottler = twitterThrottler;
         this.manager = manager;
+        this.objectMapper = objectMapper;
 
         initializeTwitter(twitterFactory);
         manager.tell(new NewWorker(), self());
@@ -74,14 +81,13 @@ public class WorkerActor extends AbstractLoggingActor {
     }
 
     private PartialFunction<Object, BoxedUnit> working = ReceiveBuilder
-            .match(RateToken.class, msg -> processRepository())
+            .match(Token.class, msg -> processRepository())
             .match(NoMoreTokens.class, msg -> context().setReceiveTimeout(Duration.create(1, TimeUnit.SECONDS)))
             .match(ReceiveTimeout.class, msg -> tryAgain())
             .build();
 
     private void processRepository() {
         try {
-            // 450 requests per 15-minutes
             Query query = new Query(currentRepository.getFullName());
             QueryResult result = twitter.search(query);
             result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
@@ -98,6 +104,8 @@ public class WorkerActor extends AbstractLoggingActor {
         requestToken();
     }
 
+    private void print(List<Status> tweets) {
 
+    }
 
 }

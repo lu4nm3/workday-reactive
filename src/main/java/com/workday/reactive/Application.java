@@ -2,6 +2,7 @@ package com.workday.reactive;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -30,6 +31,7 @@ public class Application {
     private GitHubBuilder gitHubBuilder;
     private TwitterFactory twitterFactory;
     private RateLimiter gitHubRateLimiter;
+    private ObjectMapper objectMapper;
 
     public static void main(String[] args) {
         Application app = new Application();
@@ -44,6 +46,7 @@ public class Application {
         gitHubBuilder = getGitHubBuilder();
         twitterFactory = new TwitterFactory();
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
+        objectMapper = new ObjectMapper();
     }
 
     private GitHubBuilder getGitHubBuilder() {
@@ -54,7 +57,7 @@ public class Application {
 
     private void start() {
         log.info("Starting ManagerActor");
-        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory), APPLICATION_ACTOR);
+        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper), APPLICATION_ACTOR);
         application.tell(new Start(), ActorRef.noSender());
     }
 
