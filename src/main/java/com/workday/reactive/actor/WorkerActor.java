@@ -19,14 +19,16 @@ import twitter4j.TwitterFactory;
 public class WorkerActor extends AbstractLoggingActor {
     private TwitterFactory twitterFactory;
 
+    private ActorRef twitterThrottler;
     private ActorRef manager;
 
-    public static Props props(TwitterFactory twitterFactory, ActorRef manager) {
-        return Props.create(WorkerActor.class, twitterFactory, manager);
+    public static Props props(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager) {
+        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, ActorRef manager) {
+    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager) {
         this.twitterFactory = twitterFactory;
+        this.twitterThrottler = twitterThrottler;
         this.manager = manager;
 
         manager.tell(new NewWorker(), self());

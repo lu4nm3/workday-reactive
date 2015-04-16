@@ -13,6 +13,7 @@ import twitter4j.TwitterFactory;
 
 import static com.workday.reactive.Constants.GITHUB_EVENTS_LISTENER_ACTOR;
 import static com.workday.reactive.Constants.MANAGER_ACTOR;
+import static com.workday.reactive.Constants.TWITTER_WORKERS;
 
 /**
  * @author lmedina
@@ -20,6 +21,8 @@ import static com.workday.reactive.Constants.MANAGER_ACTOR;
 public class ApplicationActor extends AbstractLoggingActor{
     private ActorRef manager;
     private ActorRef eventsListener;
+    private ActorRef twitterThrottler;
+    private ActorRef workers;
 
     public static Props props(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory) {
         return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory);
@@ -28,6 +31,8 @@ public class ApplicationActor extends AbstractLoggingActor{
     ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory) {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
         eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
+        twitterThrottler = null;
+        workers = context().actorOf(WorkerActor.props(twitterFactory, twitterThrottler, manager), TWITTER_WORKERS);
     }
 
     @Override
