@@ -8,6 +8,7 @@ import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.GitHubException;
 import com.workday.reactive.actor.messages.Initialize;
 import com.workday.reactive.actor.messages.Start;
+import org.apache.commons.collections4.CollectionUtils;
 import org.kohsuke.github.*;
 import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
@@ -15,6 +16,7 @@ import scala.runtime.BoxedUnit;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.workday.reactive.Constants.REACTIVE;
 
@@ -25,8 +27,10 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private GitHubBuilder gitHubBuilder;
     private GitHub gitHubListener;
     private RateLimiter gitHubRateLimiter;
-
     private ActorRef manager;
+
+    private Long latestEventMillis;
+    private GHRepository latestRepo;
 
     public static Props props(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, ActorRef manager) {
         return Props.create(GitHubEventsListenerActor.class, gitHubBuilder, gitHubRateLimiter, manager);
@@ -36,6 +40,9 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         this.gitHubBuilder = gitHubBuilder;
         this.gitHubRateLimiter = gitHubRateLimiter;
         this.manager = manager;
+
+        latestEventMillis = Long.MIN_VALUE;
+        latestRepo = null;
 
         self().tell(new Start(), self());
     }
@@ -75,20 +82,37 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private void listen() throws GitHubException {
         try {
-            List<GHEventInfo> searchIterable = gitHubBuilder.build().getEvents();
+            List<GHEventInfo> events = gitHubBuilder.build().getEvents();
+            List<GHEventInfo> filteredEvents = getFilteredEvents(events);
+            List<GHRepository> repositories = getRepositories(filteredEvents);
 
-            searchIterable.stream().filter(event -> event.getType() == GHEvent.CREATE).filter(event -> event.getCreatedAt())
+            repositories.forEach(repo -> manager.tell(repo, self()));
 
-            System.out.println(searchIterable.size());
-//            Iterator<GHRepository> iterator = searchIterable.iterator();
-//
-//            while (iterator.hasNext()) {
-//                gitHubRateLimiter.acquire();
-//                GHRepository repository = iterator.next();
-//                manager.tell(repository, self());
-//            }
+            if (!CollectionUtils.isEmpty(filteredEvents)) {
+                latestRepo = filteredEvents.get(0).getRepository();
+                latestEventMillis = filteredEvents.get(0).getCreatedAt().getTime();
+            }
+            System.out.println("done");
         } catch (IOException e) {
             throw new GitHubException(e);
+        }
+    }
+
+    private List<GHEventInfo> getFilteredEvents(List<GHEventInfo> events) {
+        return events.stream().filter(event -> event.getType() == GHEvent.CREATE)
+                              .filter(event -> event.getCreatedAt().getTime() > latestEventMillis)
+                              .collect(Collectors.toList());
+    }
+
+    private List<GHRepository> getRepositories(List<GHEventInfo> events) {
+        return events.stream().map(this::getRepository).filter(repo -> repo != null).collect(Collectors.toList());
+    }
+
+    private GHRepository getRepository(GHEventInfo event) {
+        try {
+            return event.getRepository();
+        } catch (IOException e) {
+            return null;
         }
     }
 }

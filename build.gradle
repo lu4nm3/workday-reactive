@@ -30,6 +30,8 @@ dependencies {
             'com.typesafe:config:1.2.1',
             'commons-lang:commons-lang:2.6',
             'joda-time:joda-time:2.7',
+            'org.apache.commons:commons-lang3:3.3.2',
+            'org.apache.commons:commons-collections4:4.0',
             'org.projectlombok:lombok:1.16.0',
             'org.slf4j:slf4j-api:1.7.12',
             'org.twitter4j:twitter4j-core:4.0.3'
