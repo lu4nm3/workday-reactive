@@ -30,9 +30,9 @@ public class ApplicationActor extends AbstractLoggingActor{
 
     ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory) {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
-        eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
         twitterThrottler = null;
         workers = context().actorOf(WorkerActor.props(twitterFactory, twitterThrottler, manager), TWITTER_WORKERS);
+        eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 
     @Override

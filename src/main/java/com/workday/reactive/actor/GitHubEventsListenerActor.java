@@ -16,6 +16,8 @@ import scala.runtime.BoxedUnit;
 import java.io.IOException;
 import java.util.Iterator;
 
+import static com.workday.reactive.Constants.*;
+
 /**
  * @author lmedina
  */
@@ -44,7 +46,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         try {
             GitHub gitHub = gitHubBuilder.build();
 
-            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q("reactive").list();
+            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q(REACTIVE).list();
 
             Iterator<GHRepository> iterator = searchIterable.iterator();
 

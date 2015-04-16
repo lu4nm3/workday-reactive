@@ -38,7 +38,7 @@ public class Application {
     }
 
     private void init() {
-        configuration = ConfigFactory.parseFile(new File("configuration/application.conf"));//.withFallback(ConfigFactory.load());
+        configuration = ConfigFactory.parseFile(new File("configuration/application.conf"));
         system = ActorSystem.create("ActorSystem", configuration);
 
         gitHubBuilder = getGitHubBuilder();
@@ -51,18 +51,6 @@ public class Application {
         properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
         return GitHubBuilder.fromProperties(properties);
     }
-
-//    private Twitter getTwitter() {
-//        AccessToken accessToken = new AccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN),
-//                                                  configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET));
-//
-//        Twitter twitter = twitterFactory.getInstance();
-//        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
-//                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
-//        twitter.setOAuthAccessToken(accessToken);
-//
-//        return twitter;
-//    }
 
     private void start() {
         log.info("Starting ManagerActor");

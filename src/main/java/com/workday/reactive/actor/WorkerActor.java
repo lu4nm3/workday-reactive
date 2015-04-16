@@ -16,8 +16,6 @@ import twitter4j.auth.AccessToken;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.workday.reactive.Constants.REACTIVE;
-
 /**
  * @author lmedina
  */
@@ -84,15 +82,15 @@ public class WorkerActor extends AbstractLoggingActor {
     private void processRepository() {
         try {
             // 450 requests per 15-minutes
-            Query query = new Query(REACTIVE);
+            Query query = new Query(currentRepository.getFullName());
             QueryResult result = twitter.search(query);
             result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
             manager.tell(new WorkDone(), self());
+            context().unbecome();
         } catch (TwitterException e) {
-            System.out.println(e);
+            log().warning("There was an issue connecting to Twitter. Retrying...");
+            requestToken();
         }
-
-        sender().tell(new WorkDone(), self());
     }
 
     private void tryAgain() {
