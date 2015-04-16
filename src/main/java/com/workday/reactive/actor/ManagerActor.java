@@ -4,16 +4,18 @@ import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.Terminated;
-import akka.event.EventBus;
 import akka.japi.pf.ReceiveBuilder;
-import com.workday.reactive.actor.messages.WorkAvailable;
 import com.workday.reactive.actor.messages.NeedWork;
+import com.workday.reactive.actor.messages.WorkAvailable;
 import com.workday.reactive.actor.messages.WorkDone;
 import org.kohsuke.github.GHRepository;
 import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
 
 /**
  * @author lmedina
@@ -31,11 +33,10 @@ public class ManagerActor extends AbstractLoggingActor {
         work = new LinkedList<>();
         workMapping = new HashMap<>();
         workers = new HashMap<>();
-
-        receive(getReceive());
     }
 
-    private PartialFunction<Object, BoxedUnit> getReceive() {
+    @Override
+    public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
                 .match(GHRepository.class, this::addWorkToQueue)
                 .match(NeedWork.class, msg -> sendWorkIfAvailable())
@@ -46,6 +47,7 @@ public class ManagerActor extends AbstractLoggingActor {
     }
 
     private void addWorkToQueue(GHRepository repository) {
+        log().debug("Received new reactive repository \"{}\".", repository.getFullName());
         work.add(repository);
         broadcastWorkAvailability();
     }

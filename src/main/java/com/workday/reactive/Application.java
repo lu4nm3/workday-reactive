@@ -2,22 +2,21 @@ package com.workday.reactive;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import com.google.common.util.concurrent.RateLimiter;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.workday.reactive.actor.ApplicationActor;
+import com.workday.reactive.actor.messages.Start;
+import com.workday.reactive.configuration.GitHubConfig;
 import com.workday.reactive.configuration.TwitterConfig;
-import lombok.extern.slf4j.Slf4j;
-import org.kohsuke.github.GHRepository;
-import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
-import org.kohsuke.github.PagedSearchIterable;
-import twitter4j.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import twitter4j.Twitter;
+import twitter4j.TwitterFactory;
 import twitter4j.auth.AccessToken;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.Properties;
 
 import static com.workday.reactive.Constants.APPLICATION_ACTOR;
@@ -25,20 +24,20 @@ import static com.workday.reactive.Constants.APPLICATION_ACTOR;
 /**
  * @author lmedina
  */
-@Slf4j
 public class Application {
+    private static final Logger log = LoggerFactory.getLogger(Application.class);
+
     private Config configuration;
     private ActorSystem system;
 
     private GitHubBuilder gitHubBuilder;
     private TwitterFactory twitterFactory;
-    private Twitter twitter;
+    private RateLimiter gitHubRateLimiter;
 
     public static void main(String[] args) {
         Application app = new Application();
         app.init();
-        app.twitterTest();
-//        app.start();
+        app.start();
     }
 
     private void init() {
@@ -47,15 +46,15 @@ public class Application {
 
         gitHubBuilder = getGitHubBuilder();
         twitterFactory = new TwitterFactory();
-        twitter = getTwitter();
+        gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
     }
 
     private GitHubBuilder getGitHubBuilder() {
         Properties properties = new Properties();
-//        properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
+        properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
 //        properties.put("login", configuration.getString(GitHubConfig.LOGIN));
 //        properties.put("password", configuration.getString(GitHubConfig.PASSWORD));
-
+//        return new GitHubBuilder();
         return GitHubBuilder.fromProperties(properties);
     }
 
@@ -68,61 +67,49 @@ public class Application {
                                  configuration.getString(TwitterConfig.Auth.API_SECRET));
         twitter.setOAuthAccessToken(accessToken);
 
-//        System.out.println(accessToken.toString());
-//        Configuration config = new ConfigurationBuilder()
-////                .setOAuthAccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN))
-////                .setOAuthAccessTokenSecret(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET))
-//                .setOAuthConsumerKey(configuration.getString(TwitterConfig.Auth.API_KEY))
-//                .setOAuthConsumerSecret(configuration.getString(TwitterConfig.Auth.API_SECRET))
-//                .setOAuth2AccessToken(accessToken.toString())
-//                .build();
-//        Authorization auth = new OAuth2Authorization(config);
-//        Twitter twitter = twitterFactory.getInstance(auth);
-
 
         return twitter;
     }
 
     private void start() {
         log.info("Starting ManagerActor");
-        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, twitterFactory), APPLICATION_ACTOR);
-
-
+        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory), APPLICATION_ACTOR);
+        application.tell(new Start(), ActorRef.noSender());
     }
 
-    private void gitHubTest() {
-        try {
-            GitHub gitHub = gitHubBuilder.build();
-
-            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q("reactive").list();//.q("reactive").list();
-
-            Iterator<GHRepository> iterator = searchIterable.iterator();
-            while (iterator.hasNext()) {
-                System.out.println(iterator.next().getFullName());
-            }
-//            searchIterable.asList().stream().forEach(repo -> System.out.println(repo.getFullName()));
-
-            System.out.println(searchIterable.getTotalCount());
-        } catch (IOException e) {
-            System.out.println(e);
-        }
-    }
-
-    private void twitterTest() {
-        Query query = new Query("reactive");
-        try {
-            // 180 requests per 15-minutes
-            QueryResult result = twitter.search(query);
-            result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
-        } catch (TwitterException e) {
-            System.out.println(e);
-        }
-
-        try {
-            Map<String, RateLimitStatus> rateLimitStatus = twitter.getRateLimitStatus("search");
-            System.out.println(rateLimitStatus);
-        } catch (TwitterException e) {
-            e.printStackTrace();
-        }
-    }
+//    private void gitHubTest() {
+//        try {
+//            GitHub gitHub = gitHubBuilder.build();
+//
+//            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q("reactive").list();//.q("reactive").list();
+//
+//            Iterator<GHRepository> iterator = searchIterable.iterator();
+//            while (iterator.hasNext()) {
+//                System.out.println(iterator.next().getFullName());
+//            }
+////            searchIterable.asList().stream().forEach(repo -> System.out.println(repo.getFullName()));
+//
+//            System.out.println(searchIterable.getTotalCount());
+//        } catch (IOException e) {
+//            System.out.println(e);
+//        }
+//    }
+//
+//    private void twitterTest() {
+//        Query query = new Query("reactive");
+//        try {
+//            // 180 requests per 15-minutes
+//            QueryResult result = twitter.search(query);
+//            result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
+//        } catch (TwitterException e) {
+//            System.out.println(e);
+//        }
+//
+//        try {
+//            Map<String, RateLimitStatus> rateLimitStatus = twitter.getRateLimitStatus("search");
+//            System.out.println(rateLimitStatus);
+//        } catch (TwitterException e) {
+//            e.printStackTrace();
+//        }
+//    }
 }
