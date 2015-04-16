@@ -52,9 +52,7 @@ public class Application {
         twitterFactory = new TwitterFactory();
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
         objectMapper = new ObjectMapper();
-        twitterRetryableFactory = new ExponentialBackOffRetryableFactory(configuration.getLong(TwitterConfig.Retry.INTERVAL_MILLIS),
-                                                                         configuration.getLong(TwitterConfig.Retry.FACTOR),
-                                                                         configuration.getLong(TwitterConfig.Retry.MAX_RETRIES));
+        twitterRetryableFactory = createExponentialBackOffRetryableFactory();
     }
 
     private GitHubBuilder createGitHubBuilder() {
@@ -63,8 +61,14 @@ public class Application {
         return GitHubBuilder.fromProperties(properties);
     }
 
+    private AbstractFactory<ExponentialBackOffRetryable> createExponentialBackOffRetryableFactory() {
+        return new ExponentialBackOffRetryableFactory(configuration.getLong(TwitterConfig.Retry.INTERVAL_MILLIS),
+                                                      configuration.getLong(TwitterConfig.Retry.FACTOR),
+                                                      configuration.getLong(TwitterConfig.Retry.MAX_RETRIES));
+    }
+
     private void start() {
-        log.trace("Starting ManagerActor");
+        log.info("Starting ManagerActor.");
         ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory), APPLICATION_ACTOR);
         application.tell(new Start(), ActorRef.noSender());
     }

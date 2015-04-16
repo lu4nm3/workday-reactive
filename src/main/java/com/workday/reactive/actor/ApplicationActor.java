@@ -25,6 +25,12 @@ import static com.workday.reactive.Constants.*;
  * @author lmedina
  */
 public class ApplicationActor extends AbstractLoggingActor{
+    private GitHubBuilder gitHubBuilder;
+    private RateLimiter gitHubRateLimiter;
+    private TwitterFactory twitterFactory;
+    private ObjectMapper objectMapper;
+    private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
+
     private ActorRef manager;
     private ActorRef twitterThrottler;
     private ActorRef workers;
@@ -32,17 +38,18 @@ public class ApplicationActor extends AbstractLoggingActor{
 
     private SupervisorStrategy strategy = new OneForOneStrategy(3, Duration.create(1, TimeUnit.MINUTES), DeciderBuilder
             .match(GitHubException.class, e -> {
-                System.out.println("GitHub appears to be unreachable. Try again later.");
+                System.out.println("GitHub appears to be unreachable. Shutting down application. Try again later.");
                 System.exit(-1);
                 return SupervisorStrategy.stop();
             })
             .match(TwitterException.class, e -> {
-                System.out.println("Twitter appears to be unreachable. Try again later.");
+                System.out.println("Twitter appears to be unreachable. Shutting down application. Try again later.");
                 System.exit(-1);
                 return SupervisorStrategy.stop();
             })
             .match(Throwable.class, e -> {
-                log().warning(e.getMessage());
+                System.out.println("Unknown error. Shutting down application.");
+                System.exit(-1);
                 return SupervisorStrategy.restart();
             }).build());
 
@@ -64,6 +71,15 @@ public class ApplicationActor extends AbstractLoggingActor{
                      TwitterFactory twitterFactory,
                      ObjectMapper objectMapper,
                      AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
+        this.gitHubBuilder = gitHubBuilder;
+        this.gitHubRateLimiter = gitHubRateLimiter;
+        this.twitterFactory = twitterFactory;
+        this.objectMapper = objectMapper;
+        this.twitterRetryableFactory = twitterRetryableFactory;
+    }
+
+    @Override
+    public void preStart() throws GitHubException {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
         twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
         workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
@@ -72,30 +88,21 @@ public class ApplicationActor extends AbstractLoggingActor{
                                                                                      objectMapper,
                                                                                      twitterRetryableFactory.create())), TWITTER_WORKERS);
         eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
-        context().watch(workers);
+    }
+
+    @Override
+    public void postRestart(Throwable reason) {
+        // Overriding postRestart to disable the call to preStart() after restarts in order to prevent.
     }
 
     @Override
     public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
                 .match(Start.class, msg -> start())
-                .match(Terminated.class, msg -> handleWorkerFailure())
                 .build();
     }
 
     private void start() {
         eventsListener.tell(new Start(), self());
-    }
-
-    private void handleWorkerFailure() {
-        self().tell(akka.actor.Kill.getInstance(), self());
-        log().info("Shutting down application...");
-    }
-
-    @Override
-    public void postStop() throws Exception {
-        super.postStop();
-//        context().system().shutdown();
-        System.exit(-1);
     }
 }

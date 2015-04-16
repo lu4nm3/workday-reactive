@@ -39,7 +39,7 @@ public class ManagerActor extends AbstractLoggingActor {
     @Override
     public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
-                .match(GHRepository.class, this::addWorkToQueue)
+                .match(GHRepository.class, this::addWorkToWorkQueue)
                 .match(NeedWork.class, msg -> sendWorkIfAvailable())
                 .match(WorkDone.class, msg -> completeWork())
                 .match(NewWorker.class, msg -> registerWorker())
@@ -47,10 +47,10 @@ public class ManagerActor extends AbstractLoggingActor {
                 .build();
     }
 
-    private void addWorkToQueue(GHRepository repository) {
-        log().debug("Received new reactive repository \"{}\".", repository.getFullName());
+    private void addWorkToWorkQueue(GHRepository repository) {
         work.add(repository);
         broadcastWorkAvailability();
+        log().debug("Received new reactive repository \"{}\".", repository.getFullName());
     }
 
     private void sendWorkIfAvailable() {
@@ -76,6 +76,8 @@ public class ManagerActor extends AbstractLoggingActor {
         if (!work.isEmpty()) {
             sender().tell(new WorkAvailable(), self());
         }
+
+        log().info("Registered new worker \"{}\".", sender());
     }
 
     private void handleWorkerFailure() {
@@ -87,7 +89,7 @@ public class ManagerActor extends AbstractLoggingActor {
             broadcastWorkAvailability();
         }
 
-        log().warning("Worker failure {}", sender());
+        log().warning("De-registering failed worker {}", sender());
     }
 
     private void broadcastWorkAvailability() {
