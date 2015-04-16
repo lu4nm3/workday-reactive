@@ -1,4 +1,16 @@
 apply plugin: 'java'
+//apply plugin:'application'
+//
+//mainClassName = "com.workday.reactive.Application"
+//
+//applicationDefaultJvmArgs = ["-Dlogback.configurationFile=configuration/logback.xml"]
+//
+//applicationDistribution.from("$rootDir/configuration") {
+//    include '**/*.conf', '**/*.xml'
+//    into "/bin/configuration"
+//}
+//
+//applicationName = "workday-reactive"
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -24,6 +36,7 @@ dependencies {
             'com.typesafe:config:1.2.1',
             'commons-lang:commons-lang:2.6',
             'joda-time:joda-time:2.7',
+            'org.jenkins-ci:annotation-indexer:1.4',
             'org.kohsuke:github-api:1.66',
             'org.projectlombok:lombok:1.16.0',
             'org.slf4j:slf4j-api:1.7.12',
