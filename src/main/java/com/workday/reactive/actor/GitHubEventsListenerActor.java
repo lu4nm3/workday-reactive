@@ -7,15 +7,18 @@ import akka.japi.pf.ReceiveBuilder;
 import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.GitHubException;
 import com.workday.reactive.actor.messages.Initialize;
-import com.workday.reactive.actor.messages.Start;
+import com.workday.reactive.actor.messages.Listen;
+import com.workday.reactive.configuration.GitHubConfig;
 import org.apache.commons.collections4.CollectionUtils;
 import org.kohsuke.github.*;
 import scala.PartialFunction;
+import scala.concurrent.duration.Duration;
 import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.workday.reactive.Constants.REACTIVE;
@@ -25,9 +28,9 @@ import static com.workday.reactive.Constants.REACTIVE;
  */
 public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private GitHubBuilder gitHubBuilder;
-    private GitHub gitHubListener;
     private RateLimiter gitHubRateLimiter;
     private ActorRef manager;
+    private Long listeningIntervalSeconds;
 
     private Long latestEventMillis;
     private GHRepository latestRepo;
@@ -41,10 +44,12 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         this.gitHubRateLimiter = gitHubRateLimiter;
         this.manager = manager;
 
+        listeningIntervalSeconds = context().system().settings().config().getLong(GitHubConfig.LISTENING_INTERVAL_SECONDS);
+
         latestEventMillis = Long.MIN_VALUE;
         latestRepo = null;
 
-        self().tell(new Start(), self());
+        self().tell(new Listen(), self());
     }
 
     @Override
@@ -61,7 +66,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
                 .match(Initialize.class, msg -> loadCurrentGitHubRepositories())
-                .match(Start.class, msg -> listen())
+                .match(Listen.class, msg -> listen())
                 .build();
     }
 
@@ -88,11 +93,19 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
             repositories.forEach(repo -> manager.tell(repo, self()));
 
-            if (!CollectionUtils.isEmpty(filteredEvents)) {
-                latestRepo = filteredEvents.get(0).getRepository();
+            if (!CollectionUtils.isEmpty(repositories)) {
+                latestRepo = repositories.get(0);
                 latestEventMillis = filteredEvents.get(0).getCreatedAt().getTime();
             }
-            System.out.println("done");
+
+            context().system().scheduler().schedule(
+                    Duration.create(0, TimeUnit.SECONDS),
+                    Duration.create(listeningIntervalSeconds, TimeUnit.SECONDS),
+                    self(),
+                    new Listen(),
+                    context().dispatcher(),
+                    null
+            );
         } catch (IOException e) {
             throw new GitHubException(e);
         }
@@ -105,11 +118,16 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     }
 
     private List<GHRepository> getRepositories(List<GHEventInfo> events) {
-        return events.stream().map(this::getRepository).filter(repo -> repo != null).collect(Collectors.toList());
+        return events.stream().map(this::getRepository)
+                .filter(repo -> repo != null)
+                .filter(repo -> repo.getId() != latestRepo.getId())
+                .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
+                .collect(Collectors.toList());
     }
 
     private GHRepository getRepository(GHEventInfo event) {
         try {
+            gitHubRateLimiter.acquire();
             return event.getRepository();
         } catch (IOException e) {
             return null;

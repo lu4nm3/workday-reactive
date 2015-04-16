@@ -57,7 +57,7 @@ public class Application {
 
     private GitHubBuilder createGitHubBuilder() {
         Properties properties = new Properties();
-        properties.put(OAUTH, configuration.getString(GitHubConfig.ACCESS_TOKEN));
+        properties.put(OAUTH, configuration.getString(GitHubConfig.Auth.ACCESS_TOKEN));
         return GitHubBuilder.fromProperties(properties);
     }
 
