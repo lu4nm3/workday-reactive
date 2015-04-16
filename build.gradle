@@ -7,14 +7,14 @@ applicationDefaultJvmArgs = ["-Dlogback.configurationFile=configuration/logback.
 
 applicationDistribution.from("$rootDir/configuration") {
     include '**/*.conf', '**/*.xml'
-    into "/bin/configuration"
+    into "bin/configuration"
 }
 
 applicationName = "workday-reactive"
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
-version = '1.0'
+//version = '1.0'
 
 compileJava {
     options.compilerArgs << '-Xlint:unchecked' << '-Xlint:deprecation'
