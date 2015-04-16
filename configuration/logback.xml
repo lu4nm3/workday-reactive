@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration scan="true">
+
+    <turboFilter class="com.attensity.gnip.logging.RepetitiveMessageFilter"/>
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d %-3level [%thread] %logger{33} : %msg%n</pattern>
