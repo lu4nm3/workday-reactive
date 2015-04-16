@@ -11,6 +11,7 @@ import com.workday.reactive.actor.messages.*;
 import com.workday.reactive.configuration.TwitterConfig;
 import com.workday.reactive.data.Project;
 import com.workday.reactive.data.Summary;
+import com.workday.reactive.data.Tweet;
 import org.kohsuke.github.GHRepository;
 import scala.PartialFunction;
 import scala.concurrent.duration.Duration;
@@ -20,6 +21,7 @@ import twitter4j.auth.AccessToken;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @author lmedina
@@ -91,9 +93,8 @@ public class WorkerActor extends AbstractLoggingActor {
 
     private void processRepository() {
         try {
-            Query query = new Query(currentRepository.getName());
+            Query query = new Query(currentRepository.getFullName());
             QueryResult result = twitter.search(query);
-//            result.getTweets().stream().forEach(tweet -> System.out.println(tweet.getText()));
             print(result.getTweets());
             manager.tell(new WorkDone(), self());
             context().unbecome();
@@ -109,7 +110,8 @@ public class WorkerActor extends AbstractLoggingActor {
     }
 
     private void print(List<Status> tweets) {
-        String project = getAsJson(new Project(new Summary(currentRepository), tweets));
+        List<Tweet> customTweets = tweets.stream().map(Tweet::new).collect(Collectors.toList());
+        String project = getAsJson(new Project(new Summary(currentRepository), customTweets));
         System.out.println(project);
     }
 

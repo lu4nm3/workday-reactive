@@ -28,10 +28,11 @@ public class Summary {
 
     public Summary(GHRepository repository) {
         id = repository.getId();
-        name = repository.getName();
+        name = repository.getFullName();
         description = repository.getDescription();
         url = repository.getGitTransportUrl();
         language = repository.getLanguage();
+        setUser(repository);
     }
 
     private void setUser(GHRepository repository) {

@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import twitter4j.Status;
 
 import java.util.List;
 
@@ -21,5 +20,5 @@ public class Project {
     private Summary summary;
 
     @NonNull
-    private List<Status> tweets;
+    private List<Tweet> tweets;
 }
