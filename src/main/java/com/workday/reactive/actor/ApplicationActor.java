@@ -4,6 +4,7 @@ import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.japi.pf.ReceiveBuilder;
+import akka.routing.FromConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.actor.messages.Start;
@@ -33,7 +34,7 @@ public class ApplicationActor extends AbstractLoggingActor{
     ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory, ObjectMapper objectMapper) {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
         twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
-        workers = context().actorOf(WorkerActor.props(twitterFactory, twitterThrottler, manager, objectMapper), TWITTER_WORKERS);
+        workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory, twitterThrottler, manager, objectMapper)), TWITTER_WORKERS);
         eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 

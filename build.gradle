@@ -18,20 +18,8 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 version = '1.0'
 
-//compileJava {
-//    options.compilerArgs << '-Xlint:unchecked' << '-Xlint:deprecation'
-//}
-
-//publishing {
-//    publications {
-//        mavenJava(MavenPublication) {
-//            from components.java
-//        }
-//    }
-//}
-
-repositories {
-    mavenCentral()
+compileJava {
+    options.compilerArgs << '-Xlint:unchecked' << '-Xlint:deprecation'
 }
 
 dependencies {
@@ -52,13 +40,10 @@ dependencies {
     compile files('libs/annotation-indexer-1.4.jar')
 }
 
-//eclipse {
-//    classpath {
-//        containers.remove('org.eclipse.jdt.launching.JRE_CONTAINER')
-//        containers 'org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8'
-//    }
-//}
+repositories {
+    mavenCentral()
+}
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '1.12'
+    gradleVersion = '2.0'
 }
