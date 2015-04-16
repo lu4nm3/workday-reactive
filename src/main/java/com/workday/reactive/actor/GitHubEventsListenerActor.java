@@ -16,7 +16,6 @@ import scala.concurrent.duration.Duration;
 import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -47,19 +46,9 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         listeningIntervalSeconds = context().system().settings().config().getLong(GitHubConfig.LISTENING_INTERVAL_SECONDS);
 
         latestEventMillis = Long.MIN_VALUE;
-        latestRepo = null;
 
+        self().tell(new Initialize(), self());
         self().tell(new Listen(), self());
-    }
-
-    @Override
-    public void preStart() throws GitHubException {
-//        self().tell(new Initialize(), self());
-    }
-
-    @Override
-    public void postRestart(Throwable reason) {
-        // Overriding postRestart to disable the call to preStart() after restarts in order to prevent.
     }
 
     @Override
@@ -72,12 +61,11 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private void loadCurrentGitHubRepositories() throws GitHubException {
         try {
+            gitHubRateLimiter.acquire();
             PagedSearchIterable<GHRepository> searchIterable = gitHubBuilder.build().searchRepositories().q(REACTIVE).list();
-            Iterator<GHRepository> iterator = searchIterable.iterator();
 
-            while (iterator.hasNext()) {
+            for (GHRepository repository : searchIterable) {
                 gitHubRateLimiter.acquire();
-                GHRepository repository = iterator.next();
                 manager.tell(repository, self());
             }
         } catch (IOException e) {
@@ -119,10 +107,16 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private List<GHRepository> getRepositories(List<GHEventInfo> events) {
         return events.stream().map(this::getRepository)
-                              .filter(repo -> repo != null)
-                              .filter(repo -> repo.getId() != latestRepo.getId())
+                .filter(repo -> repo != null)
+                .filter(repo -> {
+                    if (latestRepo != null) {
+                        return repo.getId() != latestRepo.getId();
+                    } else {
+                        return true;
+                    }
+                })
                               .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
-                              .collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     private GHRepository getRepository(GHEventInfo event) {

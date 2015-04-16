@@ -50,7 +50,7 @@ public class ApplicationActor extends AbstractLoggingActor{
             .match(Throwable.class, e -> {
                 System.out.println("Unknown error. Shutting down application.");
                 System.exit(-1);
-                return SupervisorStrategy.restart();
+                return SupervisorStrategy.stop();
             }).build());
 
     @Override
@@ -103,6 +103,6 @@ public class ApplicationActor extends AbstractLoggingActor{
     }
 
     private void start() {
-//        eventsListener.tell(new Start(), self());
+//        eventsListener.tell(new Listen(), self());
     }
 }
