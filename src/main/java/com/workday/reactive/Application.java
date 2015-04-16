@@ -41,7 +41,7 @@ public class Application {
 
     private void init() {
         configuration = ConfigFactory.parseFile(new File("configuration/application.conf"));
-        system = ActorSystem.create("ActorSystem", configuration);
+        system = ActorSystem.create(ACTOR_SYSTEM, configuration);
 
         gitHubBuilder = getGitHubBuilder();
         twitterFactory = new TwitterFactory();
