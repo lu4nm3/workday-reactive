@@ -5,15 +5,14 @@ import akka.actor.ActorSystem;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.workday.reactive.actor.ApplicationActor;
-import com.workday.reactive.actor.ManagerActor;
-import com.workday.reactive.configuration.GitHubConfig;
 import com.workday.reactive.configuration.TwitterConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.kohsuke.github.*;
+import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GitHub;
+import org.kohsuke.github.GitHubBuilder;
+import org.kohsuke.github.PagedSearchIterable;
 import twitter4j.*;
 import twitter4j.auth.AccessToken;
-import twitter4j.auth.OAuth2Token;
-import twitter4j.conf.PropertyConfiguration;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,7 +20,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 
-import static com.workday.reactive.Constants.*;
+import static com.workday.reactive.Constants.APPLICATION_ACTOR;
 
 /**
  * @author lmedina
@@ -64,14 +63,21 @@ public class Application {
         AccessToken accessToken = new AccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN),
                                                   configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET));
 
-//        TwitterFactory factory = new TwitterFactory();
-//
-//        Twitter twitter = factory.getInstance();
-//        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
-//                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
-//        twitter.setOAuthAccessToken(accessToken);
+        Twitter twitter = twitterFactory.getInstance();
+        twitter.setOAuthConsumer(configuration.getString(TwitterConfig.Auth.API_KEY),
+                                 configuration.getString(TwitterConfig.Auth.API_SECRET));
+        twitter.setOAuthAccessToken(accessToken);
 
-        Twitter twitter = twitterFactory.getInstance(accessToken);
+//        System.out.println(accessToken.toString());
+//        Configuration config = new ConfigurationBuilder()
+////                .setOAuthAccessToken(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN))
+////                .setOAuthAccessTokenSecret(configuration.getString(TwitterConfig.Auth.ACCESS_TOKEN_SECRET))
+//                .setOAuthConsumerKey(configuration.getString(TwitterConfig.Auth.API_KEY))
+//                .setOAuthConsumerSecret(configuration.getString(TwitterConfig.Auth.API_SECRET))
+//                .setOAuth2AccessToken(accessToken.toString())
+//                .build();
+//        Authorization auth = new OAuth2Authorization(config);
+//        Twitter twitter = twitterFactory.getInstance(auth);
 
 
         return twitter;
