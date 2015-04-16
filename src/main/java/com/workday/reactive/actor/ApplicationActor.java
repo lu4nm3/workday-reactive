@@ -8,6 +8,8 @@ import akka.routing.FromConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.actor.messages.Start;
+import com.workday.reactive.ioc.AbstractFactory;
+import com.workday.reactive.retry.ExponentialBackOffRetryable;
 import org.kohsuke.github.GitHubBuilder;
 import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
@@ -27,14 +29,24 @@ public class ApplicationActor extends AbstractLoggingActor{
     public static Props props(GitHubBuilder gitHubBuilder,
                               RateLimiter gitHubRateLimiter,
                               TwitterFactory twitterFactory,
-                              ObjectMapper objectMapper) {
-        return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper);
+                              ObjectMapper objectMapper,
+                              AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
+        return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory);
     }
 
-    ApplicationActor(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, TwitterFactory twitterFactory, ObjectMapper objectMapper) {
+    ApplicationActor(GitHubBuilder gitHubBuilder,
+                     RateLimiter gitHubRateLimiter,
+                     TwitterFactory twitterFactory,
+                     ObjectMapper objectMapper,
+                     AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
         twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
-        workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory, twitterThrottler, manager, objectMapper)), TWITTER_WORKERS);
+        workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
+                                                                                     twitterThrottler,
+                                                                                     manager,
+                                                                                     objectMapper,
+                                                                                     twitterRetryableFactory.create())),
+                                                                    TWITTER_WORKERS);
         eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 

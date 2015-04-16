@@ -12,6 +12,8 @@ import com.workday.reactive.configuration.TwitterConfig;
 import com.workday.reactive.data.Project;
 import com.workday.reactive.data.Summary;
 import com.workday.reactive.data.Tweet;
+import com.workday.reactive.retry.Retryable;
+import org.apache.commons.lang.StringUtils;
 import org.kohsuke.github.GHRepository;
 import scala.PartialFunction;
 import scala.concurrent.duration.Duration;
@@ -30,6 +32,7 @@ public class WorkerActor extends AbstractLoggingActor {
     private ActorRef twitterThrottler;
     private ActorRef manager;
     private ObjectMapper mapper;
+    private Retryable retryable;
 
     private Twitter twitter;
 
@@ -38,14 +41,16 @@ public class WorkerActor extends AbstractLoggingActor {
     public static Props props(TwitterFactory twitterFactory,
                               ActorRef twitterThrottler,
                               ActorRef manager,
-                              ObjectMapper objectMapper) {
-        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper);
+                              ObjectMapper objectMapper,
+                              Retryable retryable) {
+        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper, retryable);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper) {
+    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper, Retryable retryable) {
         this.twitterThrottler = twitterThrottler;
         this.manager = manager;
         this.mapper = mapper;
+        this.retryable = retryable;
 
         initializeTwitter(twitterFactory);
         manager.tell(new NewWorker(), self());
@@ -88,23 +93,28 @@ public class WorkerActor extends AbstractLoggingActor {
     private PartialFunction<Object, BoxedUnit> working = ReceiveBuilder
             .match(Token.class, msg -> processRepository())
             .match(NoMoreTokens.class, msg -> context().setReceiveTimeout(Duration.create(1, TimeUnit.SECONDS)))
-            .match(ReceiveTimeout.class, msg -> tryAgain())
+            .match(ReceiveTimeout.class, msg -> tryAcquiringTokenAgain())
             .build();
 
-    private void processRepository() {
+    private void processRepository() throws TwitterException {
         try {
-            Query query = new Query(currentRepository.getFullName());
-            QueryResult result = twitter.search(query);
-            print(result.getTweets());
+            print(query());
             manager.tell(new WorkDone(), self());
             context().unbecome();
         } catch (TwitterException e) {
             log().warning("There was an issue connecting to Twitter. Retrying...");
-            requestToken();
+            context().become(retrying);
+            retry(e);
         }
     }
 
-    private void tryAgain() {
+    private List<Status> query() throws TwitterException {
+        Query query = new Query(currentRepository.getFullName());
+        QueryResult result = twitter.search(query);
+        return result.getTweets();
+    }
+
+    private void tryAcquiringTokenAgain() {
         context().setReceiveTimeout(Duration.Undefined());
         requestToken();
     }
@@ -119,7 +129,32 @@ public class WorkerActor extends AbstractLoggingActor {
         try {
             return mapper.writeValueAsString(project);
         } catch (JsonProcessingException e) {
-            return "";
+            return StringUtils.EMPTY;
+        }
+    }
+
+    private void retry(TwitterException e) throws TwitterException {
+        if (retryable.shouldRetry()) {
+            long waitTime = retryable.incrementRetryCountAndGetWaitTime();
+            context().setReceiveTimeout(Duration.create(waitTime, TimeUnit.SECONDS));
+        } else {
+            throw e;
+        }
+    }
+
+    private PartialFunction<Object, BoxedUnit> retrying = ReceiveBuilder
+            .match(ReceiveTimeout.class, msg -> retryQuery())
+            .build();
+
+    private void retryQuery() throws TwitterException {
+        try {
+            context().setReceiveTimeout(Duration.Undefined());
+            query();
+            requestToken();
+            retryable.reset();
+            context().unbecome();
+        } catch (TwitterException e) {
+            retry(e);
         }
     }
 }

@@ -45,22 +45,14 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private void loadCurrentGitHubRepositories() {
         try {
             GitHub gitHub = gitHubBuilder.build();
-
             PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q(REACTIVE).list();
-
             Iterator<GHRepository> iterator = searchIterable.iterator();
 
-//            System.out.println(searchIterable.getTotalCount());
-//            int count = 0;
             while (iterator.hasNext()) {
                 gitHubRateLimiter.acquire();
                 GHRepository repository = iterator.next();
                 manager.tell(repository, self());
-//                count++;
-//                System.out.println("count = " + count + " | repo = " + repository.getFullName());
             }
-
-//            System.out.println(searchIterable.getTotalCount());
         } catch (IOException e) {
             System.out.println(e);
         }

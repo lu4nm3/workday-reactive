@@ -15,4 +15,10 @@ public class TwitterConfig {
         public static final String REFRESH_TIME_WINDOW_MINUTES = "twitter.rate-limit.refresh-time-window-minutes";
         public static final String MAX_REQUESTS_PER_TIME_WINDOW = "twitter.rate-limit.max-requests-per-time-window";
     }
+
+    public static final class Retry {
+        public static final String INTERVAL_MILLIS = "twitter.retry.interval-millis";
+        public static final String FACTOR = "twitter.retry.factor";
+        public static final String MAX_RETRIES = "twitter.retry.max-retries";
+    }
 }

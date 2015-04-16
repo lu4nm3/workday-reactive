@@ -9,6 +9,11 @@ import com.typesafe.config.ConfigFactory;
 import com.workday.reactive.actor.ApplicationActor;
 import com.workday.reactive.actor.messages.Start;
 import com.workday.reactive.configuration.GitHubConfig;
+import com.workday.reactive.configuration.TwitterConfig;
+import com.workday.reactive.ioc.AbstractFactory;
+import com.workday.reactive.retry.ExponentialBackOffRetryable;
+import com.workday.reactive.retry.ExponentialBackOffRetryableFactory;
+import com.workday.reactive.retry.Retryable;
 import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +37,7 @@ public class Application {
     private TwitterFactory twitterFactory;
     private RateLimiter gitHubRateLimiter;
     private ObjectMapper objectMapper;
+    private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
 
     public static void main(String[] args) {
         Application app = new Application();
@@ -47,6 +53,9 @@ public class Application {
         twitterFactory = new TwitterFactory();
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
         objectMapper = new ObjectMapper();
+        twitterRetryableFactory = new ExponentialBackOffRetryableFactory(configuration.getLong(TwitterConfig.Retry.INTERVAL_MILLIS),
+                                                                         configuration.getLong(TwitterConfig.Retry.FACTOR),
+                                                                         configuration.getLong(TwitterConfig.Retry.MAX_RETRIES));
     }
 
     private GitHubBuilder getGitHubBuilder() {
@@ -57,7 +66,7 @@ public class Application {
 
     private void start() {
         log.trace("Starting ManagerActor");
-        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper), APPLICATION_ACTOR);
+        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory), APPLICATION_ACTOR);
         application.tell(new Start(), ActorRef.noSender());
     }
 }
