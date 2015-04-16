@@ -29,6 +29,7 @@ public class ApplicationActor extends AbstractLoggingActor{
     private RateLimiter gitHubRateLimiter;
     private TwitterFactory twitterFactory;
     private ObjectMapper objectMapper;
+    private AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory;
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
 
     private ActorRef manager;
@@ -62,19 +63,28 @@ public class ApplicationActor extends AbstractLoggingActor{
                               RateLimiter gitHubRateLimiter,
                               TwitterFactory twitterFactory,
                               ObjectMapper objectMapper,
+                              AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory,
                               AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
-        return Props.create(ApplicationActor.class, gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory);
+        return Props.create(ApplicationActor.class,
+                gitHubBuilder,
+                gitHubRateLimiter,
+                twitterFactory,
+                objectMapper,
+                gitHubRetryableFactory,
+                twitterRetryableFactory);
     }
 
     ApplicationActor(GitHubBuilder gitHubBuilder,
                      RateLimiter gitHubRateLimiter,
                      TwitterFactory twitterFactory,
                      ObjectMapper objectMapper,
+                     AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory,
                      AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
         this.gitHubBuilder = gitHubBuilder;
         this.gitHubRateLimiter = gitHubRateLimiter;
         this.twitterFactory = twitterFactory;
         this.objectMapper = objectMapper;
+        this.gitHubRetryableFactory = gitHubRetryableFactory;
         this.twitterRetryableFactory = twitterRetryableFactory;
     }
 
@@ -87,7 +97,10 @@ public class ApplicationActor extends AbstractLoggingActor{
                                                                                      manager,
                                                                                      objectMapper,
                                                                                      twitterRetryableFactory.create())), TWITTER_WORKERS);
-        eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder, gitHubRateLimiter, manager), GITHUB_EVENTS_LISTENER_ACTOR);
+        eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder,
+                                                                           gitHubRateLimiter,
+                                                                           manager,
+                                                                           gitHubRetryableFactory.create()), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 
     @Override

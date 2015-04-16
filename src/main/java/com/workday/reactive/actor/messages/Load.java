@@ -3,5 +3,5 @@ package com.workday.reactive.actor.messages;
 /**
  * @author lmedina
  */
-public class Listen implements Message {
+public class Load implements Message {
 }

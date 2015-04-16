@@ -14,8 +14,6 @@ import com.workday.reactive.ioc.AbstractFactory;
 import com.workday.reactive.retry.ExponentialBackOffRetryable;
 import com.workday.reactive.retry.ExponentialBackOffRetryableFactory;
 import org.kohsuke.github.GitHubBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import twitter4j.TwitterFactory;
 
 import java.io.File;
@@ -27,8 +25,6 @@ import static com.workday.reactive.Constants.*;
  * @author lmedina
  */
 public class Application {
-    private static final Logger log = LoggerFactory.getLogger(Application.class);
-
     private Config configuration;
     private ActorSystem system;
 
@@ -36,6 +32,7 @@ public class Application {
     private TwitterFactory twitterFactory;
     private RateLimiter gitHubRateLimiter;
     private ObjectMapper objectMapper;
+    private AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory;
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
 
     public static void main(String[] args) {
@@ -52,7 +49,8 @@ public class Application {
         twitterFactory = new TwitterFactory();
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
         objectMapper = new ObjectMapper();
-        twitterRetryableFactory = createExponentialBackOffRetryableFactory();
+        gitHubRetryableFactory = createGitHubRetryableFactory();
+        twitterRetryableFactory = createTwitterRetryableFactory();
     }
 
     private GitHubBuilder createGitHubBuilder() {
@@ -61,14 +59,25 @@ public class Application {
         return GitHubBuilder.fromProperties(properties);
     }
 
-    private AbstractFactory<ExponentialBackOffRetryable> createExponentialBackOffRetryableFactory() {
+    private AbstractFactory<ExponentialBackOffRetryable> createGitHubRetryableFactory() {
+        return new ExponentialBackOffRetryableFactory(configuration.getLong(GitHubConfig.Retry.INTERVAL_MILLIS),
+                                                      configuration.getLong(GitHubConfig.Retry.FACTOR),
+                                                      configuration.getLong(GitHubConfig.Retry.MAX_RETRIES));
+    }
+
+    private AbstractFactory<ExponentialBackOffRetryable> createTwitterRetryableFactory() {
         return new ExponentialBackOffRetryableFactory(configuration.getLong(TwitterConfig.Retry.INTERVAL_MILLIS),
                                                       configuration.getLong(TwitterConfig.Retry.FACTOR),
                                                       configuration.getLong(TwitterConfig.Retry.MAX_RETRIES));
     }
 
     private void start() {
-        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory), APPLICATION_ACTOR);
+        ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder,
+                                                                     gitHubRateLimiter,
+                                                                     twitterFactory,
+                                                                     objectMapper,
+                                                                     gitHubRetryableFactory,
+                                                                     twitterRetryableFactory), APPLICATION_ACTOR);
         application.tell(new Start(), ActorRef.noSender());
     }
 }

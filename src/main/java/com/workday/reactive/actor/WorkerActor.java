@@ -7,6 +7,7 @@ import akka.actor.ReceiveTimeout;
 import akka.japi.pf.ReceiveBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.RateLimiter;
 import com.workday.reactive.actor.messages.*;
 import com.workday.reactive.configuration.TwitterConfig;
 import com.workday.reactive.data.Project;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
  */
 public class WorkerActor extends AbstractLoggingActor {
     private ActorRef twitterThrottler;
+    private RateLimiter rateLimiter;
     private ActorRef manager;
     private ObjectMapper mapper;
     private Retryable retryable;
@@ -96,7 +98,7 @@ public class WorkerActor extends AbstractLoggingActor {
             print(query());
             manager.tell(new WorkDone(), self());
             context().unbecome();
-        } catch (TwitterException e) {
+        } catch (Throwable e) {
             log().warning("There was an issue connecting to Twitter. Retrying...");
             context().become(retrying);
             retry(e);
@@ -132,12 +134,12 @@ public class WorkerActor extends AbstractLoggingActor {
             .match(ReceiveTimeout.class, msg -> retryQuery())
             .build();
 
-    private void retry(TwitterException e) throws TwitterException {
+    private void retry(Throwable e) throws TwitterException {
         if (retryable.shouldRetry()) {
             long waitTime = retryable.incrementRetryCountAndGetWaitTime();
             context().setReceiveTimeout(Duration.create(waitTime, TimeUnit.SECONDS));
         } else {
-            throw e;
+            throw new TwitterException(e.getMessage());
         }
     }
 
@@ -148,7 +150,7 @@ public class WorkerActor extends AbstractLoggingActor {
             retryable.reset();
             context().unbecome();
             context().setReceiveTimeout(Duration.Undefined());
-        } catch (TwitterException e) {
+        } catch (Throwable e) {
             context().setReceiveTimeout(Duration.Undefined());
             retry(e);
         }
