@@ -14,6 +14,7 @@ import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 
 import static com.workday.reactive.Constants.REACTIVE;
 
@@ -22,6 +23,7 @@ import static com.workday.reactive.Constants.REACTIVE;
  */
 public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private GitHubBuilder gitHubBuilder;
+    private GitHub gitHubListener;
     private RateLimiter gitHubRateLimiter;
 
     private ActorRef manager;
@@ -34,11 +36,13 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         this.gitHubBuilder = gitHubBuilder;
         this.gitHubRateLimiter = gitHubRateLimiter;
         this.manager = manager;
+
+        self().tell(new Start(), self());
     }
 
     @Override
     public void preStart() throws GitHubException {
-        self().tell(new Initialize(), self());
+//        self().tell(new Initialize(), self());
     }
 
     @Override
@@ -56,8 +60,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private void loadCurrentGitHubRepositories() throws GitHubException {
         try {
-            GitHub gitHub = gitHubBuilder.withRateLimitHandler(RateLimitHandler.FAIL).build();
-            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q(REACTIVE).list();
+            PagedSearchIterable<GHRepository> searchIterable = gitHubBuilder.build().searchRepositories().q(REACTIVE).list();
             Iterator<GHRepository> iterator = searchIterable.iterator();
 
             while (iterator.hasNext()) {
@@ -70,7 +73,22 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         }
     }
 
-    private void listen() {
+    private void listen() throws GitHubException {
+        try {
+            List<GHEventInfo> searchIterable = gitHubBuilder.build().getEvents();
 
+            searchIterable.stream().filter(event -> event.getType() == GHEvent.CREATE).filter(event -> event.getCreatedAt())
+
+            System.out.println(searchIterable.size());
+//            Iterator<GHRepository> iterator = searchIterable.iterator();
+//
+//            while (iterator.hasNext()) {
+//                gitHubRateLimiter.acquire();
+//                GHRepository repository = iterator.next();
+//                manager.tell(repository, self());
+//            }
+        } catch (IOException e) {
+            throw new GitHubException(e);
+        }
     }
 }

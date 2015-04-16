@@ -68,7 +68,6 @@ public class Application {
     }
 
     private void start() {
-        log.info("Starting ManagerActor.");
         ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder, gitHubRateLimiter, twitterFactory, objectMapper, twitterRetryableFactory), APPLICATION_ACTOR);
         application.tell(new Start(), ActorRef.noSender());
     }

@@ -35,7 +35,6 @@ public class WorkerActor extends AbstractLoggingActor {
     private Retryable retryable;
 
     private Twitter twitter;
-
     private GHRepository currentRepository;
 
     public static Props props(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
