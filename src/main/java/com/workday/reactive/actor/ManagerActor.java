@@ -86,6 +86,8 @@ public class ManagerActor extends AbstractLoggingActor {
             work.add(workerRepositoryMapping.remove(sender()));
             broadcastWorkAvailability();
         }
+
+        log().warning("Worker failure {}", sender());
     }
 
     private void broadcastWorkAvailability() {

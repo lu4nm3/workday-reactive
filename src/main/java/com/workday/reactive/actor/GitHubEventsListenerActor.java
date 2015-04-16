@@ -5,18 +5,17 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.japi.pf.ReceiveBuilder;
 import com.google.common.util.concurrent.RateLimiter;
+import com.workday.reactive.GitHubException;
+import com.workday.reactive.actor.messages.Initialize;
 import com.workday.reactive.actor.messages.Start;
-import org.kohsuke.github.GHRepository;
-import org.kohsuke.github.GitHub;
-import org.kohsuke.github.GitHubBuilder;
-import org.kohsuke.github.PagedSearchIterable;
+import org.kohsuke.github.*;
 import scala.PartialFunction;
 import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.util.Iterator;
 
-import static com.workday.reactive.Constants.*;
+import static com.workday.reactive.Constants.REACTIVE;
 
 /**
  * @author lmedina
@@ -38,24 +37,8 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     }
 
     @Override
-    public void preStart() {
-        loadCurrentGitHubRepositories();
-    }
-
-    private void loadCurrentGitHubRepositories() {
-        try {
-            GitHub gitHub = gitHubBuilder.build();
-            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q(REACTIVE).list();
-            Iterator<GHRepository> iterator = searchIterable.iterator();
-
-            while (iterator.hasNext()) {
-                gitHubRateLimiter.acquire();
-                GHRepository repository = iterator.next();
-                manager.tell(repository, self());
-            }
-        } catch (IOException e) {
-            System.out.println(e);
-        }
+    public void preStart() throws GitHubException {
+        self().tell(new Initialize(), self());
     }
 
     @Override
@@ -66,11 +49,28 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     @Override
     public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
-                .match(Start.class, msg -> start())
+                .match(Initialize.class, msg -> loadCurrentGitHubRepositories())
+                .match(Start.class, msg -> listen())
                 .build();
     }
 
-    private void start() {
+    private void loadCurrentGitHubRepositories() throws GitHubException {
+        try {
+            GitHub gitHub = gitHubBuilder.withRateLimitHandler(RateLimitHandler.FAIL).build();
+            PagedSearchIterable<GHRepository> searchIterable = gitHub.searchRepositories().q(REACTIVE).list();
+            Iterator<GHRepository> iterator = searchIterable.iterator();
+
+            while (iterator.hasNext()) {
+                gitHubRateLimiter.acquire();
+                GHRepository repository = iterator.next();
+                manager.tell(repository, self());
+            }
+        } catch (IOException e) {
+            throw new GitHubException(e);
+        }
+    }
+
+    private void listen() {
 
     }
 }

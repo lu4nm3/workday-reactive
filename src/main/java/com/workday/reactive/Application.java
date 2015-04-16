@@ -13,7 +13,6 @@ import com.workday.reactive.configuration.TwitterConfig;
 import com.workday.reactive.ioc.AbstractFactory;
 import com.workday.reactive.retry.ExponentialBackOffRetryable;
 import com.workday.reactive.retry.ExponentialBackOffRetryableFactory;
-import com.workday.reactive.retry.Retryable;
 import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +48,7 @@ public class Application {
         configuration = ConfigFactory.parseFile(new File("configuration/application.conf"));
         system = ActorSystem.create(ACTOR_SYSTEM, configuration);
 
-        gitHubBuilder = getGitHubBuilder();
+        gitHubBuilder = createGitHubBuilder();
         twitterFactory = new TwitterFactory();
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
         objectMapper = new ObjectMapper();
@@ -58,7 +57,7 @@ public class Application {
                                                                          configuration.getLong(TwitterConfig.Retry.MAX_RETRIES));
     }
 
-    private GitHubBuilder getGitHubBuilder() {
+    private GitHubBuilder createGitHubBuilder() {
         Properties properties = new Properties();
         properties.put(OAUTH, configuration.getString(GitHubConfig.ACCESS_TOKEN));
         return GitHubBuilder.fromProperties(properties);

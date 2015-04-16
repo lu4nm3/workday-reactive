@@ -38,11 +38,7 @@ public class WorkerActor extends AbstractLoggingActor {
 
     private GHRepository currentRepository;
 
-    public static Props props(TwitterFactory twitterFactory,
-                              ActorRef twitterThrottler,
-                              ActorRef manager,
-                              ObjectMapper objectMapper,
-                              Retryable retryable) {
+    public static Props props(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
         return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper, retryable);
     }
 
@@ -133,6 +129,10 @@ public class WorkerActor extends AbstractLoggingActor {
         }
     }
 
+    private PartialFunction<Object, BoxedUnit> retrying = ReceiveBuilder
+            .match(ReceiveTimeout.class, msg -> retryQuery())
+            .build();
+
     private void retry(TwitterException e) throws TwitterException {
         if (retryable.shouldRetry()) {
             long waitTime = retryable.incrementRetryCountAndGetWaitTime();
@@ -142,18 +142,15 @@ public class WorkerActor extends AbstractLoggingActor {
         }
     }
 
-    private PartialFunction<Object, BoxedUnit> retrying = ReceiveBuilder
-            .match(ReceiveTimeout.class, msg -> retryQuery())
-            .build();
-
     private void retryQuery() throws TwitterException {
         try {
-            context().setReceiveTimeout(Duration.Undefined());
             query();
             requestToken();
             retryable.reset();
             context().unbecome();
+            context().setReceiveTimeout(Duration.Undefined());
         } catch (TwitterException e) {
+            context().setReceiveTimeout(Duration.Undefined());
             retry(e);
         }
     }
