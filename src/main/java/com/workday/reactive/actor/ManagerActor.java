@@ -6,6 +6,7 @@ import akka.actor.Props;
 import akka.actor.Terminated;
 import akka.japi.pf.ReceiveBuilder;
 import com.workday.reactive.actor.messages.NeedWork;
+import com.workday.reactive.actor.messages.NewWorker;
 import com.workday.reactive.actor.messages.WorkAvailable;
 import com.workday.reactive.actor.messages.WorkDone;
 import org.kohsuke.github.GHRepository;
@@ -22,7 +23,7 @@ import java.util.Queue;
  */
 public class ManagerActor extends AbstractLoggingActor {
     private Queue<GHRepository> work;
-    private Map<ActorRef, GHRepository> workMapping;
+    private Map<ActorRef, GHRepository> workerRepositoryMapping;
     private Map<ActorRef, ActorRef> workers;
 
     public static Props props() {
@@ -31,7 +32,7 @@ public class ManagerActor extends AbstractLoggingActor {
 
     ManagerActor() {
         work = new LinkedList<>();
-        workMapping = new HashMap<>();
+        workerRepositoryMapping = new HashMap<>();
         workers = new HashMap<>();
     }
 
@@ -41,7 +42,7 @@ public class ManagerActor extends AbstractLoggingActor {
                 .match(GHRepository.class, this::addWorkToQueue)
                 .match(NeedWork.class, msg -> sendWorkIfAvailable())
                 .match(WorkDone.class, msg -> completeWork())
-                .match(ActorRef.class, this::registerWorker)
+                .match(NewWorker.class, msg -> registerWorker())
                 .match(Terminated.class, any -> handleWorkerFailure())
                 .build();
     }
@@ -56,24 +57,24 @@ public class ManagerActor extends AbstractLoggingActor {
         if (!work.isEmpty()) {
             GHRepository repository = work.poll();
             sender().tell(repository, self());
-            workMapping.put(sender(), repository);
+            workerRepositoryMapping.put(sender(), repository);
         }
     }
 
     private void completeWork() {
-        workMapping.remove(sender());
+        workerRepositoryMapping.remove(sender());
 
         if (!work.isEmpty()) {
             broadcastWorkAvailability();
         }
     }
 
-    private void registerWorker(ActorRef worker) {
-        context().watch(worker);
-        workers.put(worker, worker);
+    private void registerWorker() {
+        context().watch(sender());
+        workers.put(sender(), sender());
 
         if (!work.isEmpty()) {
-            worker.tell(new WorkAvailable(), self());
+            sender().tell(new WorkAvailable(), self());
         }
     }
 
@@ -81,8 +82,8 @@ public class ManagerActor extends AbstractLoggingActor {
         context().unwatch(sender());
         workers.remove(sender());
 
-        if (workMapping.containsKey(sender())) {
-            work.add(workMapping.remove(sender()));
+        if (workerRepositoryMapping.containsKey(sender())) {
+            work.add(workerRepositoryMapping.remove(sender()));
             broadcastWorkAvailability();
         }
     }

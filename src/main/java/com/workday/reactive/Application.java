@@ -54,7 +54,6 @@ public class Application {
         properties.put("oauth", configuration.getString(GitHubConfig.ACCESS_TOKEN));
 //        properties.put("login", configuration.getString(GitHubConfig.LOGIN));
 //        properties.put("password", configuration.getString(GitHubConfig.PASSWORD));
-//        return new GitHubBuilder();
         return GitHubBuilder.fromProperties(properties);
     }
 

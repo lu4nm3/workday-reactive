@@ -36,13 +36,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     }
 
     @Override
-    public PartialFunction<Object, BoxedUnit> receive() {
-        return ReceiveBuilder
-                .match(Start.class, msg -> start())
-                .build();
-    }
-
-    private void start() {
+    public void preStart() {
         loadCurrentGitHubRepositories();
     }
 
@@ -68,5 +62,21 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         } catch (IOException e) {
             System.out.println(e);
         }
+    }
+
+    @Override
+    public void postRestart(Throwable reason) {
+        // Overriding postRestart to disable the call to preStart() after restarts in order to prevent.
+    }
+
+    @Override
+    public PartialFunction<Object, BoxedUnit> receive() {
+        return ReceiveBuilder
+                .match(Start.class, msg -> start())
+                .build();
+    }
+
+    private void start() {
+
     }
 }
