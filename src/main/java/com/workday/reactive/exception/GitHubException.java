@@ -1,4 +1,4 @@
-package com.workday.reactive;
+package com.workday.reactive.exception;
 
 /**
  * @author lmedina

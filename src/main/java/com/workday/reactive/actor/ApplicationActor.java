@@ -6,7 +6,7 @@ import akka.japi.pf.ReceiveBuilder;
 import akka.routing.FromConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.RateLimiter;
-import com.workday.reactive.GitHubException;
+import com.workday.reactive.exception.GitHubException;
 import com.workday.reactive.actor.messages.Start;
 import com.workday.reactive.ioc.AbstractFactory;
 import com.workday.reactive.retry.ExponentialBackOffRetryable;

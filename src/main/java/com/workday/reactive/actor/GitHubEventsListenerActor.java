@@ -5,7 +5,7 @@ import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.japi.pf.ReceiveBuilder;
 import com.google.common.util.concurrent.RateLimiter;
-import com.workday.reactive.GitHubException;
+import com.workday.reactive.exception.GitHubException;
 import com.workday.reactive.actor.messages.Listen;
 import com.workday.reactive.actor.messages.Load;
 import com.workday.reactive.actor.messages.Message;
