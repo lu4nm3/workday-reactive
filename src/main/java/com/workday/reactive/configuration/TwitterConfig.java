@@ -16,6 +16,8 @@ public class TwitterConfig {
         public static final String MAX_REQUESTS_PER_TIME_WINDOW = "twitter.rate-limit.max-requests-per-time-window";
     }
 
+    public static final String REQUESTS_PER_SECOND = "twitter.requests-per-second";
+
     public static final class Retry {
         public static final String INTERVAL_MILLIS = "twitter.retry.interval-millis";
         public static final String FACTOR = "twitter.retry.factor";

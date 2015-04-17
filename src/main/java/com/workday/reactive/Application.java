@@ -31,6 +31,7 @@ public class Application {
     private GitHubBuilder gitHubBuilder;
     private TwitterFactory twitterFactory;
     private RateLimiter gitHubRateLimiter;
+    private RateLimiter twitterRateLimiter;
     private ObjectMapper objectMapper;
     private AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory;
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
@@ -47,6 +48,7 @@ public class Application {
 
         gitHubBuilder = createGitHubBuilder();
         twitterFactory = new TwitterFactory();
+        twitterRateLimiter = RateLimiter.create(configuration.getDouble(TwitterConfig.REQUESTS_PER_SECOND));
         gitHubRateLimiter = RateLimiter.create(configuration.getDouble(GitHubConfig.REQUESTS_PER_SECOND));
         objectMapper = new ObjectMapper();
         gitHubRetryableFactory = createGitHubRetryableFactory();
@@ -75,6 +77,7 @@ public class Application {
         ActorRef application = system.actorOf(ApplicationActor.props(gitHubBuilder,
                                                                      gitHubRateLimiter,
                                                                      twitterFactory,
+                                                                     twitterRateLimiter,
                                                                      objectMapper,
                                                                      gitHubRetryableFactory,
                                                                      twitterRetryableFactory), APPLICATION_ACTOR);

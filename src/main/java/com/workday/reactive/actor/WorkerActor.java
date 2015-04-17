@@ -39,12 +39,13 @@ public class WorkerActor extends AbstractLoggingActor {
     private Twitter twitter;
     private GHRepository currentRepository;
 
-    public static Props props(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
-        return Props.create(WorkerActor.class, twitterFactory, twitterThrottler, manager, objectMapper, retryable);
+    public static Props props(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
+        return Props.create(WorkerActor.class, twitterFactory, rateLimiter, twitterThrottler, manager, objectMapper, retryable);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper, Retryable retryable) {
+    WorkerActor(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper, Retryable retryable) {
         this.twitterThrottler = twitterThrottler;
+        this.rateLimiter = rateLimiter;
         this.manager = manager;
         this.mapper = mapper;
         this.retryable = retryable;

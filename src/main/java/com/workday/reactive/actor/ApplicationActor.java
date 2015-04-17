@@ -28,6 +28,7 @@ public class ApplicationActor extends AbstractLoggingActor{
     private GitHubBuilder gitHubBuilder;
     private RateLimiter gitHubRateLimiter;
     private TwitterFactory twitterFactory;
+    private RateLimiter twitterRateLimiter;
     private ObjectMapper objectMapper;
     private AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory;
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
@@ -62,6 +63,7 @@ public class ApplicationActor extends AbstractLoggingActor{
     public static Props props(GitHubBuilder gitHubBuilder,
                               RateLimiter gitHubRateLimiter,
                               TwitterFactory twitterFactory,
+                              RateLimiter twitterRateLimiter,
                               ObjectMapper objectMapper,
                               AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory,
                               AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
@@ -69,6 +71,7 @@ public class ApplicationActor extends AbstractLoggingActor{
                 gitHubBuilder,
                 gitHubRateLimiter,
                 twitterFactory,
+                twitterRateLimiter,
                 objectMapper,
                 gitHubRetryableFactory,
                 twitterRetryableFactory);
@@ -77,12 +80,14 @@ public class ApplicationActor extends AbstractLoggingActor{
     ApplicationActor(GitHubBuilder gitHubBuilder,
                      RateLimiter gitHubRateLimiter,
                      TwitterFactory twitterFactory,
+                     RateLimiter twitterRateLimiter,
                      ObjectMapper objectMapper,
                      AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory,
                      AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
         this.gitHubBuilder = gitHubBuilder;
         this.gitHubRateLimiter = gitHubRateLimiter;
         this.twitterFactory = twitterFactory;
+        this.twitterRateLimiter = twitterRateLimiter;
         this.objectMapper = objectMapper;
         this.gitHubRetryableFactory = gitHubRetryableFactory;
         this.twitterRetryableFactory = twitterRetryableFactory;
@@ -93,6 +98,7 @@ public class ApplicationActor extends AbstractLoggingActor{
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
         twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
         workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
+                                                                                     twitterRateLimiter,
                                                                                      twitterThrottler,
                                                                                      manager,
                                                                                      objectMapper,
