@@ -58,15 +58,18 @@ public class ManagerActor extends AbstractLoggingActor {
             GHRepository repository = work.poll();
             sender().tell(repository, self());
             workerRepositoryMapping.put(sender(), repository);
+            log().info("Sent repository \"{}\" to worker {} for processing.", repository.getFullName(), sender());
         }
     }
 
     private void completeWork() {
-        workerRepositoryMapping.remove(sender());
+        GHRepository repository = workerRepositoryMapping.remove(sender());
 
         if (!work.isEmpty()) {
             broadcastWorkAvailability();
         }
+
+        log().info("Worker {} completed processing repository \"{}\" .", sender(), repository.getFullName());
     }
 
     private void registerWorker() {

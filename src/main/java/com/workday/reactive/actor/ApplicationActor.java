@@ -33,10 +33,6 @@ public class ApplicationActor extends AbstractLoggingActor{
     private AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory;
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
 
-    private ActorRef manager;
-    private ActorRef workers;
-    private ActorRef eventsListener;
-
     private SupervisorStrategy strategy = new OneForOneStrategy(3, Duration.create(1, TimeUnit.MINUTES), DeciderBuilder
             .match(GitHubException.class, e -> {
                 System.out.println("GitHub appears to be unreachable. Shutting down application. Try again later.");
@@ -67,13 +63,13 @@ public class ApplicationActor extends AbstractLoggingActor{
                               AbstractFactory<ExponentialBackOffRetryable> gitHubRetryableFactory,
                               AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory) {
         return Props.create(ApplicationActor.class,
-                gitHubBuilder,
-                gitHubRateLimiter,
-                twitterFactory,
-                twitterRateLimiter,
-                objectMapper,
-                gitHubRetryableFactory,
-                twitterRetryableFactory);
+                            gitHubBuilder,
+                            gitHubRateLimiter,
+                            twitterFactory,
+                            twitterRateLimiter,
+                            objectMapper,
+                            gitHubRetryableFactory,
+                            twitterRetryableFactory);
     }
 
     ApplicationActor(GitHubBuilder gitHubBuilder,
@@ -94,21 +90,21 @@ public class ApplicationActor extends AbstractLoggingActor{
 
     @Override
     public void preStart() throws GitHubException {
-        manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
-        workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
-                                                                                     twitterRateLimiter,
-                                                                                     manager,
-                                                                                     objectMapper,
-                                                                                     twitterRetryableFactory.create())), TWITTER_WORKERS);
-        eventsListener = context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder,
-                                                                           gitHubRateLimiter,
+        ActorRef manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
+        context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
+                                                                           twitterRateLimiter,
                                                                            manager,
-                                                                           gitHubRetryableFactory.create()), GITHUB_EVENTS_LISTENER_ACTOR);
+                                                                           objectMapper,
+                                                                           twitterRetryableFactory.create())), TWITTER_WORKERS);
+        context().actorOf(GitHubEventsListenerActor.props(gitHubBuilder,
+                                                          gitHubRateLimiter,
+                                                          manager,
+                                                          gitHubRetryableFactory.create()), GITHUB_EVENTS_LISTENER_ACTOR);
     }
 
     @Override
     public void postRestart(Throwable reason) {
-        // Overriding postRestart to disable the call to preStart() after restarts in order to prevent.
+        // Overriding postRestart to disable the call to preStart() after restarts in order to prevent child actors from getting recreated.
     }
 
     @Override

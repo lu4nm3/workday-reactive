@@ -35,7 +35,8 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private Retryable retryable;
     private Long listeningIntervalSeconds;
 
-    private Long latestEventMillis;
+    private Long latestEventMillis = Long.MIN_VALUE;
+
     private GHRepository latestRepo;
 
     public static Props props(GitHubBuilder gitHubBuilder, RateLimiter gitHubRateLimiter, ActorRef manager, Retryable retryable) {
@@ -50,8 +51,6 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
         listeningIntervalSeconds = context().system().settings().config().getLong(GitHubConfig.LISTENING_INTERVAL_SECONDS);
 
-        latestEventMillis = Long.MIN_VALUE;
-
         self().tell(new Load(), self());
     }
 
@@ -65,9 +64,11 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private void loadGitHubRepositories() throws GitHubException {
         try {
+            log().info("Loading up initial GitHub repositories.");
             readGitHubRepositories();
             self().tell(new Listen(), self());
         } catch (Throwable e) {
+            log().warning("There was an issue connecting to GitHub to load repositories. Retrying...");
             context().become(retrying);
             retry(new Load());
         }
@@ -90,11 +91,13 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
             readEvents();
             scheduleMessage(new Listen(), listeningIntervalSeconds, TimeUnit.SECONDS);
         } catch (Throwable e) {
+            log().warning("There was an issue while listening to events from GitHub. Retrying...");
             retry(new Listen());
         }
     }
 
     private void readEvents() throws Throwable {
+        rateLimiter.acquire();
         List<GHEventInfo> events = gitHubBuilder.build().getEvents();
         List<GHEventInfo> filteredEvents = getFilteredEvents(events);
         List<GHRepository> repositories = getRepositories(filteredEvents);
@@ -150,6 +153,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
             context().unbecome();
             retryable.reset();
         } catch (Throwable e) {
+            log().warning("There was an issue re-connecting to GitHub to load repositories. Retrying...");
             retry(new Load());
         }
     }
@@ -160,6 +164,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
             context().unbecome();
             retryable.reset();
         } catch (Throwable e) {
+            log().warning("There was an issue while re-connecting to GitHub to listen to events. Retrying...");
             retry(new Listen());
         }
     }

@@ -4,6 +4,7 @@ import akka.actor.AbstractLoggingActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.ReceiveTimeout;
+import akka.japi.pf.FI;
 import akka.japi.pf.ReceiveBuilder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,6 +51,7 @@ public class WorkerActor extends AbstractLoggingActor {
 
         initializeTwitter(twitterFactory);
         manager.tell(new NewWorker(), self());
+        log().info("Registering with ManagerActor.");
     }
 
     private void initializeTwitter(TwitterFactory twitterFactory) {
@@ -129,6 +131,7 @@ public class WorkerActor extends AbstractLoggingActor {
             context().unbecome();
             context().setReceiveTimeout(Duration.Undefined());
         } catch (Throwable e) {
+            log().warning("There was an issue while re-connecting to Twitter. Retrying...");
             context().setReceiveTimeout(Duration.Undefined());
             retry(e);
         }
