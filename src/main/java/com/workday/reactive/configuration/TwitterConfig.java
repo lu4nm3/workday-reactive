@@ -11,11 +11,6 @@ public class TwitterConfig {
         public static final String API_SECRET = "twitter.authentication.api-secret";
     }
 
-    public static final class RateLimit {
-        public static final String REFRESH_TIME_WINDOW_MINUTES = "twitter.rate-limit.refresh-time-window-minutes";
-        public static final String MAX_REQUESTS_PER_TIME_WINDOW = "twitter.rate-limit.max-requests-per-time-window";
-    }
-
     public static final String REQUESTS_PER_SECOND = "twitter.requests-per-second";
 
     public static final class Retry {
