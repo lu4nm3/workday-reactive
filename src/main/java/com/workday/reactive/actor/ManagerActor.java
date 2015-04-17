@@ -54,7 +54,7 @@ public class ManagerActor extends AbstractLoggingActor {
     }
 
     private void sendWorkIfAvailable() {
-        if (!work.isEmpty()) {
+        if (!work.isEmpty() && !workerRepositoryMapping.containsKey(sender())) {
             GHRepository repository = work.poll();
             sender().tell(repository, self());
             workerRepositoryMapping.put(sender(), repository);
