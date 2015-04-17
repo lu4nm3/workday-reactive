@@ -85,88 +85,10 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         }
     }
 
-//    private void doSomething(Consumer<String> function, String value) throws Exception {
-//        function.accept(value);
-//    }
-//    private void loadCurrentGitHubRepositories2() throws GitHubException {
-//        Optional<PagedSearchIterable<GHRepository>> repositoriesOptional = f();
-//
-//        if (repositoriesOptional.isPresent()) {
-//            PagedSearchIterable<GHRepository> repositories = repositoriesOptional.get();
-//            PagedIterator<GHRepository> iterator = repositories.iterator();
-//
-//            while (iterator.hasNext()) {
-//                rateLimiter.acquire();
-//                Optional<GHRepository> repository = h(iterator);
-//
-//                if (!repository.isPresent()) {
-//                    manager.tell(repository.get(), self());
-//                } else {
-//                    log().warning("There was an issue connecting to GitHub. Retrying...");
-//                    context().become(retrying);
-//                    retry();
-//                }
-//
-//                repositories.forEach(repo -> manager.tell(repo, self()));
-//            }
-//        } else {
-//            log().warning("There was an issue connecting to GitHub. Retrying...");
-//            context().become(retrying);
-//            retry();
-//        }
-//    }
-//
-//    private Optional<PagedSearchIterable<GHRepository>> f() {
-//        try {
-//            return Optional.of(gitHubBuilder.build().searchRepositories().q(REACTIVE).list());
-//        } catch (IOException e) {
-//            return Optional.empty();
-//        }
-//    }
-//
-//    private Optional<GHRepository> h(Iterator<GHRepository> iterator) {
-//        try {
-//            return Optional.of(iterator.next());
-//        } catch (Throwable e) {
-//            return Optional.empty();
-//        }
-//    }
-//
-//    private Optional<List<GHRepository>> g() {
-//        try {
-//            List<GHRepository> repositories = new LinkedList<>();
-//            PagedSearchIterable<GHRepository> searchResults = gitHubBuilder.build().searchRepositories().q(REACTIVE).list();
-//            Iterator<GHRepository> iterator = searchResults.iterator();
-//
-//            while (iterator.hasNext()) {
-//                rateLimiter.acquire();
-//                repositories.add(iterator.next());
-//            }
-//
-//            return Optional.of(repositories);
-//
-////            rateLimiter.acquire();
-////            return Optional.of(gitHubBuilder.build().searchRepositories().q(REACTIVE).list());
-//        } catch (IOException e) {
-//            return Optional.empty();
-//        }
-//    }
-//
-//    private  <T> void connectToGitHub(Supplier<T> function) {
-//        function.get();
-//    }
-
     private void listen() throws GitHubException {
         try {
             readEvents();
-
-            context().system().scheduler().scheduleOnce(
-                    Duration.create(listeningIntervalSeconds, TimeUnit.SECONDS),
-                    self(),
-                    new Listen(),
-                    context().dispatcher(),
-                    null
-            );
+            scheduleMessage(new Listen(), listeningIntervalSeconds, TimeUnit.SECONDS);
         } catch (Throwable e) {
             retry(new Listen());
         }
@@ -193,16 +115,10 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
 
     private List<GHRepository> getRepositories(List<GHEventInfo> events) {
         return events.stream().map(this::getRepository)
-                .filter(repo -> repo != null)
-                .filter(repo -> {
-                    if (latestRepo != null) {
-                        return repo.getId() != latestRepo.getId();
-                    } else {
-                        return true;
-                    }
-                })
-                .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
-                .collect(Collectors.toList());
+                              .filter(repo -> repo != null)
+                              .filter(repo -> latestRepo == null || repo.getId() != latestRepo.getId())
+                              .filter(repo -> repo.getFullName().toLowerCase().contains(REACTIVE))
+                              .collect(Collectors.toList());
     }
 
     private GHRepository getRepository(GHEventInfo event) {
@@ -222,12 +138,7 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
     private void retry(Message message) throws GitHubException {
         if (retryable.shouldRetry()) {
             long waitTime = retryable.incrementRetryCountAndGetWaitTime();
-            context().system().scheduler().scheduleOnce(
-                    Duration.create(waitTime, TimeUnit.MILLISECONDS),
-                    self(),
-                    message,
-                    context().dispatcher(),
-                    null);
+            scheduleMessage(message, waitTime, TimeUnit.MILLISECONDS);
         } else {
             throw new GitHubException();
         }
@@ -251,5 +162,14 @@ public class GitHubEventsListenerActor extends AbstractLoggingActor {
         } catch (Throwable e) {
             retry(new Listen());
         }
+    }
+
+    private void scheduleMessage(Object obj, Long length, TimeUnit unit) {
+        context().system().scheduler().scheduleOnce(
+                Duration.create(length, unit),
+                self(),
+                obj,
+                context().dispatcher(),
+                null);
     }
 }

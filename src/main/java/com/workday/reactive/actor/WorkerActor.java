@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
  * @author lmedina
  */
 public class WorkerActor extends AbstractLoggingActor {
-    private ActorRef twitterThrottler;
     private RateLimiter rateLimiter;
     private ActorRef manager;
     private ObjectMapper mapper;
@@ -39,12 +38,11 @@ public class WorkerActor extends AbstractLoggingActor {
     private Twitter twitter;
     private GHRepository currentRepository;
 
-    public static Props props(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef twitterThrottler, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
-        return Props.create(WorkerActor.class, twitterFactory, rateLimiter, twitterThrottler, manager, objectMapper, retryable);
+    public static Props props(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef manager, ObjectMapper objectMapper, Retryable retryable) {
+        return Props.create(WorkerActor.class, twitterFactory, rateLimiter, manager, objectMapper, retryable);
     }
 
-    WorkerActor(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef twitterThrottler, ActorRef manager, ObjectMapper mapper, Retryable retryable) {
-        this.twitterThrottler = twitterThrottler;
+    WorkerActor(TwitterFactory twitterFactory, RateLimiter rateLimiter, ActorRef manager, ObjectMapper mapper, Retryable retryable) {
         this.rateLimiter = rateLimiter;
         this.manager = manager;
         this.mapper = mapper;
@@ -69,57 +67,37 @@ public class WorkerActor extends AbstractLoggingActor {
     @Override
     public PartialFunction<Object, BoxedUnit> receive() {
         return ReceiveBuilder
-                .match(WorkAvailable.class, msg -> requestWork())
-                .match(GHRepository.class, this::getToWork)
+                .match(WorkAvailable.class, msg -> sender().tell(new NeedWork(), self()))
+                .match(GHRepository.class, this::handleRepository)
                 .build();
     }
 
-    private void requestWork() {
-        sender().tell(new NeedWork(), self());
-    }
-
-    private void getToWork(GHRepository repository) {
-        currentRepository = repository;
-        requestToken();
-        context().become(working);
-    }
-
-    private void requestToken() {
-        twitterThrottler.tell(new NeedToken(), self());
-    }
-
-    private PartialFunction<Object, BoxedUnit> working = ReceiveBuilder
-            .match(Token.class, msg -> processRepository())
-            .match(NoMoreTokens.class, msg -> context().setReceiveTimeout(Duration.create(1, TimeUnit.SECONDS)))
-            .match(ReceiveTimeout.class, msg -> tryAcquiringTokenAgain())
-            .build();
-
-    private void processRepository() throws TwitterException {
+    private void handleRepository(GHRepository repository) throws TwitterException {
         try {
-            print(query());
-            manager.tell(new WorkDone(), self());
-            context().unbecome();
+            processRepository(repository);
         } catch (Throwable e) {
             log().warning("There was an issue connecting to Twitter. Retrying...");
             context().become(retrying);
+            currentRepository = repository;
             retry(e);
         }
     }
 
-    private List<Status> query() throws TwitterException {
-        Query query = new Query(currentRepository.getFullName());
+    private void processRepository(GHRepository repository) throws TwitterException {
+        print(repository, query(repository));
+        manager.tell(new WorkDone(), self());
+    }
+
+    private List<Status> query(GHRepository repository) throws TwitterException {
+        Query query = new Query(repository.getFullName());
+        rateLimiter.acquire();
         QueryResult result = twitter.search(query);
         return result.getTweets();
     }
 
-    private void tryAcquiringTokenAgain() {
-        context().setReceiveTimeout(Duration.Undefined());
-        requestToken();
-    }
-
-    private void print(List<Status> tweets) {
+    private void print(GHRepository repository, List<Status> tweets) {
         List<Tweet> customTweets = tweets.stream().map(Tweet::new).collect(Collectors.toList());
-        String project = getAsJson(new Project(new Summary(currentRepository), customTweets));
+        String project = getAsJson(new Project(new Summary(repository), customTweets));
         System.out.println(project);
     }
 
@@ -146,8 +124,7 @@ public class WorkerActor extends AbstractLoggingActor {
 
     private void retryQuery() throws TwitterException {
         try {
-            query();
-            requestToken();
+            processRepository(currentRepository);
             retryable.reset();
             context().unbecome();
             context().setReceiveTimeout(Duration.Undefined());

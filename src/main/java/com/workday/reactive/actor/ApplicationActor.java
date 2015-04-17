@@ -34,7 +34,6 @@ public class ApplicationActor extends AbstractLoggingActor{
     private AbstractFactory<ExponentialBackOffRetryable> twitterRetryableFactory;
 
     private ActorRef manager;
-    private ActorRef twitterThrottler;
     private ActorRef workers;
     private ActorRef eventsListener;
 
@@ -96,10 +95,8 @@ public class ApplicationActor extends AbstractLoggingActor{
     @Override
     public void preStart() throws GitHubException {
         manager = context().actorOf(ManagerActor.props(), MANAGER_ACTOR);
-        twitterThrottler = context().actorOf(ThrottlingActor.props(), THROTTLING_ACTOR);
         workers = context().actorOf(FromConfig.getInstance().props(WorkerActor.props(twitterFactory,
                                                                                      twitterRateLimiter,
-                                                                                     twitterThrottler,
                                                                                      manager,
                                                                                      objectMapper,
                                                                                      twitterRetryableFactory.create())), TWITTER_WORKERS);
